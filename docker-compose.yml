@@ -1,0 +1,19 @@
+services:
+  mts-mvp-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mts-mvp-web
+    env_file:
+      - .env
+    environment:
+      PORT: "5000"
+      MTS_MEMORY_DB_PATH: /app/.mts_memory/memory.db
+    ports:
+      - "5050:5000"
+    volumes:
+      - mts_mvp_memory:/app/.mts_memory
+    restart: unless-stopped
+
+volumes:
+  mts_mvp_memory:

@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.mts_memory/
+node_modules/
+web/static/dist/

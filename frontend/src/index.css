@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --page-bg: #f4f8ff;
+    --page-grad-1: rgba(59, 148, 255, 0.1);
+    --page-grad-2: rgba(116, 162, 255, 0.07);
+    --bg-orb-1: rgba(59, 148, 255, 0.12);
+    --bg-orb-2: rgba(120, 166, 255, 0.1);
+    --surface: rgba(255, 255, 255, 0.72);
+    --surface-soft: #f7faff;
+    --surface-elevated: rgba(255, 255, 255, 0.92);
+    --surface-hover: rgba(255, 255, 255, 0.98);
+    --sidebar-bg: rgba(237, 243, 255, 0.84);
+    --sidebar-border: rgba(149, 177, 214, 0.24);
+    --border-soft: rgba(148, 163, 184, 0.22);
+    --border-strong: rgba(59, 148, 255, 0.28);
+    --text-primary: #181a20;
+    --text-secondary: #636d7e;
+    --text-tertiary: #8a96a8;
+    --accent: #3b94ff;
+    --accent-strong: #2d82e9;
+    --accent-glow: rgba(59, 148, 255, 0.34);
+    --accent-gradient: linear-gradient(135deg, #3EB2FF 0%, #2587FF 100%);
+    --user-bg: #eef4ff;
+    --user-border: rgba(59, 148, 255, 0.18);
+    --danger-bg: rgba(255, 239, 239, 0.95);
+    --danger-soft: rgba(223, 95, 95, 0.18);
+    --danger-text: #ca5d5d;
+    --overlay: rgba(17, 24, 39, 0.18);
+    --shadow-color: rgba(37, 64, 106, 0.22);
+    --panel-surface: rgba(250, 252, 255, 0.94);
+    --panel-border: rgba(148, 163, 184, 0.22);
+    --panel-header-bg: rgba(255,255,255,0.76);
+    --panel-chip-bg: rgba(255,255,255,0.78);
+    --panel-resize-handle: rgba(59, 148, 255, 0.28);
+    --code-surface: #f8fbff;
+    --code-header-bg: rgba(245,249,255,0.96);
+    --code-border: rgba(166, 187, 219, 0.34);
+    --code-chip-bg: rgba(255,255,255,0.76);
+    --code-chip-hover: rgba(255,255,255,0.94);
+    --code-text: #18314f;
+    --code-muted: #6e82a3;
+    --code-line-number: #8ba1bf;
+    --code-keyword: #0d74d8;
+    --code-string: #19875f;
+    --code-comment: #7c8ea8;
+    --code-number: #c47b12;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page-bg: #0f1726;
+    --page-grad-1: rgba(58, 119, 214, 0.16);
+    --page-grad-2: rgba(36, 84, 160, 0.13);
+    --bg-orb-1: rgba(56, 118, 216, 0.16);
+    --bg-orb-2: rgba(22, 78, 164, 0.14);
+    --surface: rgba(20, 28, 42, 0.72);
+    --surface-soft: rgba(25, 35, 52, 0.96);
+    --surface-elevated: rgba(18, 26, 40, 0.9);
+    --surface-hover: rgba(27, 37, 56, 0.98);
+    --sidebar-bg: rgba(14, 21, 33, 0.86);
+    --sidebar-border: rgba(89, 116, 162, 0.18);
+    --border-soft: rgba(89, 116, 162, 0.18);
+    --border-strong: rgba(81, 160, 255, 0.34);
+    --text-primary: #eef4ff;
+    --text-secondary: #aab6cb;
+    --text-tertiary: #7d89a0;
+    --accent: #5aa8ff;
+    --accent-strong: #4798f3;
+    --accent-glow: rgba(90, 168, 255, 0.38);
+    --accent-gradient: linear-gradient(135deg, #3EB2FF 0%, #2587FF 100%);
+    --user-bg: rgba(21, 49, 89, 0.58);
+    --user-border: rgba(90, 168, 255, 0.18);
+    --danger-bg: rgba(81, 35, 42, 0.9);
+    --danger-soft: rgba(239, 115, 115, 0.18);
+    --danger-text: #ff9d9d;
+    --overlay: rgba(3, 7, 18, 0.56);
+    --shadow-color: rgba(3, 7, 18, 0.72);
+    --panel-surface: rgba(11, 20, 36, 0.92);
+    --panel-border: rgba(89, 116, 162, 0.2);
+    --panel-header-bg: rgba(14, 22, 38, 0.88);
+    --panel-chip-bg: rgba(255,255,255,0.04);
+    --panel-resize-handle: rgba(90, 168, 255, 0.34);
+    --code-surface: #081529;
+    --code-header-bg: rgba(9,22,42,0.92);
+    --code-border: rgba(255,255,255,0.07);
+    --code-chip-bg: rgba(255,255,255,0.05);
+    --code-chip-hover: rgba(255,255,255,0.1);
+    --code-text: #e7eefc;
+    --code-muted: #7f97bf;
+    --code-line-number: #6f86ab;
+    --code-keyword: #7cc7ff;
+    --code-string: #8ee0bd;
+    --code-comment: #6f86ab;
+    --code-number: #f8c77e;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    background: var(--page-bg);
+  }
+
+  body {
+    @apply m-0 font-sans antialiased;
+    background-color: var(--page-bg);
+    color: var(--text-primary);
+    background-image:
+      radial-gradient(circle at top left, var(--page-grad-1), transparent 28%),
+      radial-gradient(circle at 90% 16%, var(--page-grad-2), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+    transition: background-color 320ms ease, color 320ms ease;
+  }
+
+  * {
+    box-sizing: border-box;
+    scrollbar-color: rgba(126, 148, 184, 0.42) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(126, 148, 184, 0.28);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  button,
+  textarea,
+  input,
+  select {
+    font: inherit;
+  }
+
+  textarea::placeholder,
+  input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  ::selection {
+    background: rgba(59, 148, 255, 0.18);
+  }
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@layer utilities {
+  .auth-input-autofill:-webkit-autofill,
+  .auth-input-autofill:-webkit-autofill:hover,
+  .auth-input-autofill:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-primary);
+    -webkit-box-shadow: 0 0 0px 1000px transparent inset;
+    transition: background-color 9999s ease-out 0s;
+  }
+}
+
+@keyframes loaderDot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-2px); opacity: 1; }
+}

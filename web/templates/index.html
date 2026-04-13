@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_config.appName }}</title>
+  {% if frontend_css %}
+  <link rel="stylesheet" href="{{ frontend_css }}">
+  {% endif %}
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    window.__APP_CONFIG__ = {{ app_config | tojson }};
+  </script>
+  {% if frontend_js %}
+  <script type="module" src="{{ frontend_js }}"></script>
+  {% else %}
+  <script>
+    document.getElementById("root").innerHTML =
+      '<div style="padding:32px;font-family:Segoe UI,sans-serif;color:#334155">Frontend build is missing. Run the Docker build to compile the React app.</div>';
+  </script>
+  {% endif %}
+</body>
+</html>
