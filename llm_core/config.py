@@ -27,7 +27,7 @@ class Settings:
     mws_api_key: str = os.getenv("MWS_API_KEY", "")
     mws_base_url: str = os.getenv("MWS_BASE_URL", "https://api.gpt.mws.ru")
     request_timeout_seconds: int = int(os.getenv("MWS_TIMEOUT_SECONDS", "60"))
-    image_request_timeout_seconds: int = int(os.getenv("MWS_IMAGE_TIMEOUT_SECONDS", "300"))
+    image_request_timeout_seconds: int = int(os.getenv("MWS_IMAGE_TIMEOUT_SECONDS", "600"))
     verify_ssl: bool = os.getenv("MWS_VERIFY_SSL", "true").lower() in {"1", "true", "yes", "on"}
 
 

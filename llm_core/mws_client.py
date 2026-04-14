@@ -102,8 +102,8 @@ class MWSClient:
     def generate_image(self, model: str, prompt: str) -> str:
         prompt = (prompt or "").strip()
         attempts = [
-            {"timeout": self.image_timeout, "prompt": prompt},
-            {"timeout": max(self.image_timeout, 360), "prompt": prompt[:700]},
+            {"timeout": max(self.image_timeout, 420), "prompt": prompt, "size": "1024x1024"},
+            {"timeout": max(self.image_timeout + 180, 720), "prompt": prompt[:900], "size": "1024x1024"},
         ]
 
         last_error = None
@@ -111,6 +111,8 @@ class MWSClient:
             payload = {
                 "model": model,
                 "prompt": attempt["prompt"],
+                "size": attempt["size"],
+                "response_format": "b64_json",
             }
             request = urllib.request.Request(
                 url=f"{self.base_url}/v1/images/generations",
@@ -134,8 +136,8 @@ class MWSClient:
         status = (last_error or {}).get("status")
         if status == "timeout":
             return (
-                "Не удалось дождаться генерации изображения. Попробуйте более короткий промпт, "
-                "уточните стиль или повторите запрос ещё раз."
+                "Генерация изображения заняла слишком много времени на стороне модели. "
+                "Попробуйте более короткий промпт, уточните стиль или повторите запрос ещё раз."
             )
         return "Не удалось получить изображение от модели. Попробуйте ещё раз."
 

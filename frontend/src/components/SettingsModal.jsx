@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckIcon, CloseIcon, MoonIcon, SparklesIcon, SunIcon } from "./icons";
+import { CheckIcon, CloseIcon, MicrophoneIcon, MoonIcon, SparklesIcon, SunIcon } from "./icons";
 
 function ToggleRow({ title, description, checked, onToggle }) {
   return (
@@ -138,6 +138,12 @@ export function SettingsModal({
                   checked={Boolean(preferences?.autoArtifacts)}
                   onToggle={() => onTogglePreference?.("autoArtifacts")}
                 />
+                <ToggleRow
+                  title="Показывать стартовые сценарии"
+                  description="Компактные карточки с шаблонами запросов будут видны в новом чате."
+                  checked={Boolean(preferences?.showSuggestions)}
+                  onToggle={() => onTogglePreference?.("showSuggestions")}
+                />
                 <button
                   type="button"
                   onClick={onResetOnboarding}
@@ -155,17 +161,41 @@ export function SettingsModal({
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-[var(--border-soft)] bg-[var(--surface)] p-4 sm:p-5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">Параметры</div>
-            <div className="mt-4 space-y-3">
+          <section className="space-y-4 rounded-[28px] border border-[var(--border-soft)] bg-[var(--surface)] p-4 sm:p-5">
+            <div>
+              <div className="text-sm font-semibold text-[var(--text-primary)]">Параметры</div>
+              <div className="mt-1 text-sm text-[var(--text-secondary)]">Сводка по текущей сессии и доступным режимам работы.</div>
+            </div>
+            <div className="grid gap-3">
               {infoItems.map((item) => (
                 <div key={item.label} className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3.5">
                   <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{item.label}</div>
                   <div className="mt-2 text-sm leading-6 text-[var(--text-primary)]">{item.value}</div>
                 </div>
               ))}
-              <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3.5 text-sm leading-6 text-[var(--text-secondary)]">
-                Голосовой ввод поддерживает браузерное распознавание речи и запись через MediaRecorder, если это доступно в браузере.
+            </div>
+            <div className="grid gap-3">
+              <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3.5">
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--accent)] shadow-[0_12px_28px_-20px_var(--shadow-color)]">
+                    <MicrophoneIcon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Голосовой ввод</div>
+                    <div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Браузерное распознавание + fallback на запись</div>
+                    <div className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Сначала используется SpeechRecognition. Если браузер его не поддерживает, приложение переключается на запись и расшифровку через MediaRecorder.</div>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3.5">
+                <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Автопрокрутка</div>
+                <div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Новые строки ответа остаются в зоне чтения</div>
+                <div className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Во время плавного вывода чат мягко прокручивается вниз, чтобы можно было читать ответ по мере появления новых строк.</div>
+              </div>
+              <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3.5">
+                <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Рабочая область</div>
+                <div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Длинный код и большие ответы открываются справа</div>
+                <div className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">Так основной чат остаётся компактным, а большие артефакты удобно читать и копировать в отдельной панели.</div>
               </div>
             </div>
           </section>

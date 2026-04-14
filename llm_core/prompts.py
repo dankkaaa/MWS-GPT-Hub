@@ -93,6 +93,15 @@ def _is_new_standalone_question(message: str) -> bool:
     )
 
 
+def _looks_like_code_request(message: str) -> bool:
+    normalized = (message or "").lower()
+    markers = (
+        "код", "code", "python", "javascript", "typescript", "react", "html", "css",
+        "sql", "bash", "скрипт", "bug", "debug", "ошиб", "program", "algorithm",
+    )
+    return any(marker in normalized for marker in markers)
+
+
 def _dialogue_signals(message: str) -> dict[str, bool]:
     return {
         "is_short_correction": _is_short_correction(message),
@@ -169,6 +178,7 @@ def build_user_prompt(
     is_acknowledgement = signals["is_acknowledgement"]
     is_new_standalone_question = signals["is_new_standalone_question"]
     recent_history = recent_history or []
+    code_request = _looks_like_code_request(request.message)
 
     if recent_history:
         history_lines: list[str] = []
@@ -207,6 +217,13 @@ def build_user_prompt(
         sections.append(
             "Похоже, пользователь задал новый самостоятельный вопрос. "
             "Не притягивай прошлую тему разговора, если текущий вопрос не ссылается на нее явно."
+        )
+
+    if code_request:
+        sections.append("ПРАВИЛО ДЛЯ КОДА:")
+        sections.append(
+            "Если в ответе есть код, используй английские имена переменных, функций, классов, файлов и комментарии внутри кода, "
+            "если пользователь явно не попросил русский язык именно для кода."
         )
 
     if request.attachments:
@@ -292,6 +309,7 @@ def build_context_prompt(
 ) -> str:
     sections: list[str] = []
     signals = _dialogue_signals(request.message)
+    code_request = _looks_like_code_request(request.message)
 
     if signals["is_short_correction"]:
         sections.append("СИГНАЛ ДИАЛОГА:")
@@ -316,6 +334,13 @@ def build_context_prompt(
         sections.append(
             "Похоже, пользователь задал новый самостоятельный вопрос. "
             "Не притягивай прошлую тему разговора, если текущий вопрос не ссылается на нее явно."
+        )
+
+    if code_request:
+        sections.append("ПРАВИЛО ДЛЯ КОДА:")
+        sections.append(
+            "Если в ответе есть код, используй английские имена переменных, функций, классов, файлов и комментарии внутри кода, "
+            "если пользователь явно не попросил русский язык именно для кода."
         )
 
     if request.attachments:

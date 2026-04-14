@@ -20,13 +20,9 @@ import {
   getRememberedChatId,
   getStoredTheme,
   groupChatsByDate,
-  getLastAssistantVariant,
   inferTypingText,
   isChatEmpty,
-  loadResponseHistories,
   makeId,
-  mergeResponseHistory,
-  persistResponseHistories,
   persistTheme,
   rememberChatId,
   slugifyFilename,
@@ -35,7 +31,7 @@ import {
 
 const initialConfig = window.__APP_CONFIG__ || {};
 const ONBOARDING_STORAGE_KEY = "mts-web-onboarding-dismissed";
-const APP_PREFS_STORAGE_KEY = "mts-web-app-prefs";
+const APP_PREFS_STORAGE_KEY = "mts-web-app-prefs-v2";
 
 function createDefaultModels() {
   return { manual_models: [] };
@@ -91,18 +87,19 @@ export default function App() {
   const [drawerCopied, setDrawerCopied] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [panelWidth, setPanelWidth] = useState(560);
-  const [responseHistories, setResponseHistories] = useState({});
   const [showOnboarding, setShowOnboarding] = useState(() => window.localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "1");
   const [streamMessageId, setStreamMessageId] = useState("");
+  const [loadingChatId, setLoadingChatId] = useState(null);
   const [appPrefs, setAppPrefs] = useState(() => {
     try {
       const stored = JSON.parse(window.localStorage.getItem(APP_PREFS_STORAGE_KEY) || "{}");
       return {
         streamResponses: stored.streamResponses !== false,
         autoArtifacts: stored.autoArtifacts !== false,
+        showSuggestions: stored.showSuggestions === true,
       };
     } catch {
-      return { streamResponses: true, autoArtifacts: true };
+      return { streamResponses: true, autoArtifacts: true, showSuggestions: false };
     }
   });
 
@@ -126,34 +123,34 @@ export default function App() {
     {
       id: "ui",
       title: "UI-концепт",
-      description: "Сценарии и экраны.",
-      prompt: "Помоги продумать UI-концепт для продукта. Нужны: цель интерфейса, ключевые экраны, основные пользовательские сценарии, важные состояния, ошибки и идеи для сильного демо. Ответ сделай структурированным markdown, но оставь место для моих правок.",
+      description: "Сценарии, экраны и сильный UX.",
+      prompt: "Помоги продумать UI-концепт для продукта. Нужны цель интерфейса, ключевые пользовательские сценарии, список экранов, важные состояния и идеи, как сделать демо убедительным для жюри. Ответ сделай структурированным markdown, чтобы я мог легко отредактировать его перед отправкой.",
       icon: "sparkles",
     },
     {
       id: "debug",
       title: "Найти баг",
-      description: "Причина и фикс.",
-      prompt: "Помоги найти баг в коде. Сначала сформулируй вероятную причину, затем дай короткий план проверки, потом предложи минимальный рабочий фикс и способ убедиться, что ошибка исчезла. Если данных мало, начни с одного уточняющего вопроса.",
+      description: "Причина, проверка и минимальный фикс.",
+      prompt: "Помоги найти баг в коде. Сначала кратко опиши вероятную причину, затем дай план проверки, потом предложи минимальный рабочий фикс и способ убедиться, что ошибка действительно устранена. Если данных недостаточно, начни с одного точного уточняющего вопроса.",
       icon: "search",
     },
     {
       id: "plan",
       title: "План проекта",
-      description: "Roadmap и приоритеты.",
-      prompt: "Собери план проекта для хакатона. Нужны: идея, ключевые функции, приоритеты для MVP, риски, что успеть к демо, что показать жюри и какой порядок работ оптимален на ближайшие дни. Ответ сделай коротким, структурированным и пригодным для редактирования.",
+      description: "Roadmap, приоритеты и что показать жюри.",
+      prompt: "Собери план проекта для хакатона. Нужны идея, MVP, приоритеты, риски, что обязательно показать жюри, а что можно отложить. Добавь короткий roadmap по шагам и отдельный блок с wow-фичами для демо.",
       icon: "file",
     },
     {
       id: "artifact",
       title: "Структурированный ответ",
-      description: "Аккуратный markdown.",
-      prompt: "Подготовь ответ как аккуратный markdown-артефакт. Нужны: короткий итог, затем заголовки, списки, таблицы и блоки кода только там, где это действительно помогает. Сделай формат удобным для чтения, редактирования и показа жюри.",
+      description: "Удобный markdown-артефакт без лишней воды.",
+      prompt: "Подготовь ответ как аккуратный markdown-артефакт. Нужны короткий итог, затем заголовки, списки, таблицы и блоки кода только там, где это действительно помогает. Формат должен быть удобным для чтения, редактирования и показа жюри.",
       icon: "code",
     },
   ]), []);
 
-  const activeResponseHistory = activeChatId ? responseHistories[activeChatId] || { items: [], selectedIndex: 0 } : { items: [], selectedIndex: 0 };
+  const activeChatBusy = Boolean(loading && activeChatId && activeChatId === loadingChatId);
 
 
   useEffect(() => {
@@ -164,15 +161,6 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(APP_PREFS_STORAGE_KEY, JSON.stringify(appPrefs));
   }, [appPrefs]);
-
-  useEffect(() => {
-    setResponseHistories(loadResponseHistories(currentUser?.user_id));
-  }, [currentUser?.user_id]);
-
-  useEffect(() => {
-    if (!currentUser?.user_id) return;
-    persistResponseHistories(currentUser.user_id, responseHistories);
-  }, [currentUser?.user_id, responseHistories]);
 
 
   useEffect(() => {
@@ -320,26 +308,6 @@ export default function App() {
     setToasts((prev) => prev.filter((item) => item.id !== toastId));
   }
 
-  function syncResponseHistory(chatId, nextMessages) {
-    if (!chatId) return;
-    const variant = getLastAssistantVariant(nextMessages);
-    if (!variant) return;
-    setResponseHistories((prev) => ({
-      ...prev,
-      [chatId]: mergeResponseHistory(prev[chatId], variant),
-    }));
-  }
-
-  function selectResponseVersion(chatId, selectedIndex) {
-    setResponseHistories((prev) => ({
-      ...prev,
-      [chatId]: {
-        ...(prev[chatId] || { items: [] }),
-        selectedIndex,
-      },
-    }));
-  }
-
   function resetChatState() {
     setChats([]);
     setActiveChatId(null);
@@ -348,6 +316,7 @@ export default function App() {
     setInputValue("");
     setTypingText("");
     setLoading(false);
+    setLoadingChatId(null);
     setModelOpen(false);
     setStreamMessageId("");
     setMobileSidebarOpen(false);
@@ -388,7 +357,7 @@ export default function App() {
     const payload = await apiFetch(`/api/chats/${encodeURIComponent(chatId)}/messages`);
     const nextMessages = normalizeMessagesForUI(payload.messages || []);
     setMessages(nextMessages);
-    syncResponseHistory(chatId, nextMessages);
+    setStreamMessageId("");
     syncChat(payload.chat, userOverride, { moveToTop: false });
     setMobileSidebarOpen(false);
   }
@@ -538,7 +507,6 @@ export default function App() {
     }
 
     sendLockRef.current = true;
-    setLoading(true);
     const imageFlow = isImageMode(mode, selectedModel, models) || /(сгенерируй|создай|нарисуй|изображени|картин)/i.test(text);
     setLoadingKind(imageFlow ? "image" : "text");
     setTypingText(inferTypingText(text, outgoingAttachments, { image: imageFlow }));
@@ -552,6 +520,11 @@ export default function App() {
         chatId = created.chat_id;
         setActiveChatId(chatId);
       }
+
+      setLoading(true);
+      setLoadingChatId(chatId);
+      setLoadingKind(imageFlow ? "image" : "text");
+      setTypingText(inferTypingText(text, outgoingAttachments, { image: imageFlow }));
 
       optimisticUserMessage = {
         message_id: `temp-user-${makeId(8)}`,
@@ -583,7 +556,6 @@ export default function App() {
       const lastAssistant = [...nextMessages].reverse().find((item) => item.role === "assistant");
       setMessages(nextMessages);
       setStreamMessageId(lastAssistant?.message_id || "");
-      syncResponseHistory(chatId, nextMessages);
       syncChat(payload.chat, currentUser, { moveToTop: true });
     } catch (error) {
       setInputValue(text);
@@ -596,6 +568,7 @@ export default function App() {
       setLoading(false);
       setLoadingKind("text");
       setTypingText("");
+      setLoadingChatId(null);
       sendLockRef.current = false;
     }
   }
@@ -609,7 +582,6 @@ export default function App() {
     });
     const nextMessages = normalizeMessagesForUI(payload.messages || []);
     setMessages(nextMessages);
-    syncResponseHistory(activeChatId, nextMessages);
     syncChat(payload.chat, currentUser, { moveToTop: false });
     pushToast("Сообщение удалено", "Пользовательский ход удалён из чата.");
   }
@@ -618,14 +590,8 @@ export default function App() {
     if (!activeChatId || loading) {
       return;
     }
-    const previousVariant = getLastAssistantVariant(messages);
-    if (previousVariant) {
-      setResponseHistories((prev) => ({
-        ...prev,
-        [activeChatId]: mergeResponseHistory(prev[activeChatId], previousVariant),
-      }));
-    }
     setLoading(true);
+    setLoadingChatId(activeChatId);
     setLoadingKind("text");
     setTypingText("Думаю над новой версией");
     try {
@@ -640,13 +606,13 @@ export default function App() {
       const lastAssistant = [...nextMessages].reverse().find((item) => item.role === "assistant");
       setMessages(nextMessages);
       setStreamMessageId(lastAssistant?.message_id || "");
-      syncResponseHistory(activeChatId, nextMessages);
-      syncChat(payload.chat, currentUser, { moveToTop: true });
-      pushToast("Ответ обновлён", "Последний ответ сформирован заново. История версий сохранена.");
+        syncChat(payload.chat, currentUser, { moveToTop: true });
+      pushToast("Ответ обновлён", "Последний ответ сформирован заново.");
     } finally {
       setLoading(false);
       setLoadingKind("text");
       setTypingText("");
+      setLoadingChatId(null);
     }
   }
 
@@ -728,59 +694,7 @@ export default function App() {
     }
   }
 
-  async function toggleVoiceRecording() {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (Recognition) {
-      if (isRecording && recognitionRef.current) {
-        recognitionRef.current.stop();
-        return;
-      }
-
-      const recognition = new Recognition();
-      recognitionRef.current = recognition;
-      recognition.lang = "ru-RU";
-      recognition.interimResults = true;
-      recognition.continuous = false;
-
-      let finalTranscript = "";
-      recordingStartRef.current = Date.now();
-      setIsRecording(true);
-
-      recognition.onresult = (event) => {
-        finalTranscript = Array.from(event.results)
-          .map((result) => result[0]?.transcript || "")
-          .join(" ")
-          .trim();
-        setInputValue(finalTranscript);
-      };
-
-      recognition.onerror = () => {
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-        const transcript = finalTranscript.trim();
-        if (!transcript) {
-          return;
-        }
-        setPendingAttachments((prev) => [
-          ...prev.filter((item) => item.type !== "voice_note"),
-          {
-            type: "voice_note",
-            metadata: {
-              transcript,
-              duration_ms: Date.now() - recordingStartRef.current,
-            },
-          },
-        ]);
-      };
-
-      recognition.start();
-      return;
-    }
-
+  async function startMediaRecorderVoiceCapture() {
     if (!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder)) {
       pushToast("Голосовой ввод недоступен", "В этом браузере нет SpeechRecognition и MediaRecorder.");
       return;
@@ -795,8 +709,15 @@ export default function App() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaStreamRef.current = stream;
     mediaChunksRef.current = [];
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-    const recorder = new MediaRecorder(stream, { mimeType });
+    const preferredMimeTypes = [
+      "audio/webm;codecs=opus",
+      "audio/ogg;codecs=opus",
+      "audio/webm",
+      "audio/ogg",
+      "audio/mp4",
+    ];
+    const mimeType = preferredMimeTypes.find((item) => window.MediaRecorder?.isTypeSupported?.(item)) || "";
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;
     setIsRecording(true);
 
@@ -815,14 +736,16 @@ export default function App() {
     recorder.onstop = async () => {
       setIsRecording(false);
       stream.getTracks().forEach((track) => track.stop());
-      const blob = new Blob(mediaChunksRef.current, { type: mimeType || "audio/webm" });
+      const fallbackType = mimeType || mediaChunksRef.current?.[0]?.type || "audio/webm";
+      const ext = fallbackType.includes("ogg") ? "ogg" : fallbackType.includes("mp4") ? "m4a" : "webm";
+      const blob = new Blob(mediaChunksRef.current, { type: fallbackType });
       mediaChunksRef.current = [];
       if (!blob.size) {
         return;
       }
 
       const formData = new FormData();
-      formData.append("file", new File([blob], `voice-note-${Date.now()}.webm`, { type: blob.type || "audio/webm" }));
+      formData.append("file", new File([blob], `voice-note-${Date.now()}.${ext}`, { type: blob.type || fallbackType }));
       try {
         pushToast("Обрабатываю голос", "Секунду, распознаю запись…", { persistent: true, toastKey: "voice-transcribe" });
         const response = await fetch("/api/transcribe-audio", { method: "POST", body: formData, credentials: "same-origin" });
@@ -835,7 +758,7 @@ export default function App() {
         }
         const transcript = String(payload.transcript || "").trim();
         if (!transcript) {
-          pushToast("Речь не распознана", "Попробуйте записать голос чуть громче или короче.");
+          pushToast("Речь не распознана", "Попробуйте говорить чуть громче, ближе к микрофону или короче.");
           return;
         }
         setInputValue((prev) => [prev.trim(), transcript].filter(Boolean).join(prev.trim() ? "\n" : ""));
@@ -847,6 +770,79 @@ export default function App() {
     };
 
     recorder.start();
+  }
+
+  async function toggleVoiceRecording() {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (Recognition) {
+      if (isRecording && recognitionRef.current) {
+        recognitionRef.current.stop();
+        return;
+      }
+
+      const recognition = new Recognition();
+      recognitionRef.current = recognition;
+      recognition.lang = "ru-RU";
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      let finalTranscript = "";
+      let fallbackTriggered = false;
+      recordingStartRef.current = Date.now();
+      setIsRecording(true);
+
+      recognition.onresult = (event) => {
+        finalTranscript = Array.from(event.results)
+          .map((result) => result[0]?.transcript || "")
+          .join(" ")
+          .trim();
+        setInputValue(finalTranscript);
+      };
+
+      recognition.onerror = async () => {
+        setIsRecording(false);
+        if (!fallbackTriggered) {
+          fallbackTriggered = true;
+          try {
+            await startMediaRecorderVoiceCapture();
+          } catch (error) {
+            handleClientError(error);
+          }
+        }
+      };
+
+      recognition.onend = async () => {
+        setIsRecording(false);
+        const transcript = finalTranscript.trim();
+        if (transcript) {
+          setPendingAttachments((prev) => [
+            ...prev.filter((item) => item.type !== "voice_note"),
+            {
+              type: "voice_note",
+              metadata: {
+                transcript,
+                duration_ms: Date.now() - recordingStartRef.current,
+              },
+            },
+          ]);
+          return;
+        }
+        if (!fallbackTriggered) {
+          fallbackTriggered = true;
+          try {
+            await startMediaRecorderVoiceCapture();
+          } catch (error) {
+            handleClientError(error);
+          }
+        }
+      };
+
+      recognition.start();
+      return;
+    }
+
+    await startMediaRecorderVoiceCapture();
   }
 
   async function handleLogin(credentials) {
@@ -906,6 +902,7 @@ export default function App() {
     setLoading(false);
     setLoadingKind("text");
     setTypingText("");
+    setLoadingChatId(null);
     pushToast("Произошла ошибка", error.message || "Не удалось выполнить действие.");
   }
 
@@ -989,7 +986,7 @@ export default function App() {
                 <MenuIcon className="h-[18px] w-[18px]" />
               </button>
               <div className="hidden lg:block" />
-              <TopBarStatus title={activeChatTitle} loading={loading} />
+              <TopBarStatus title={activeChatTitle} loading={activeChatBusy} />
               <div className="h-11 w-11" />
             </div>
           </header>
@@ -1000,7 +997,7 @@ export default function App() {
                 <div className="mx-auto w-full max-w-[1160px] pb-8 pt-2">
                   <MessageList
                     messages={messages}
-                    loading={loading}
+                    loading={activeChatBusy}
                     loadingKind={loadingKind}
                     typingText={typingText}
                     appName={appName}
@@ -1013,11 +1010,9 @@ export default function App() {
                     onRegenerate={() => handleRegenerate().catch(handleClientError)}
                     onOpenPanel={appPrefs.autoArtifacts ? ((panel) => setPanelState({ open: true, ...panel })) : undefined}
                     onCopyCode={() => pushToast("Скопировано", "Код добавлен в буфер обмена.")}
-                    responseHistory={activeResponseHistory}
                     streamMessageId={streamMessageId}
                     streamResponses={appPrefs.streamResponses}
                     scrollContainerRef={scrollAreaRef}
-                    onSelectResponseVersion={(index) => selectResponseVersion(activeChatId, index)}
                   />
                 </div>
               </div>
@@ -1025,8 +1020,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" })}
-                  className="absolute bottom-[108px] z-20 hidden h-11 w-11 items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-[0_18px_40px_-30px_var(--shadow-color)] transition-[right,border-color,background-color,transform] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] sm:inline-flex"
-                  style={{ right: panelState.open ? `${panelWidth + 24}px` : "24px" }}
+                  className="absolute bottom-[108px] right-6 z-20 hidden h-11 w-11 items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-[0_18px_40px_-30px_var(--shadow-color)] transition-[border-color,background-color,transform] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] sm:inline-flex"
                   aria-label="Прокрутить вниз"
                 >
                   <ArrowDownIcon className="h-4 w-4" />
@@ -1070,24 +1064,28 @@ export default function App() {
                     </div>
                   ) : null}
 
-                  <div className="mt-8 flex flex-wrap items-center justify-center gap-2 sm:mt-10">
-                    {quickActions.map((action) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        onClick={() => applyQuickActionPrompt(action.prompt)}
-                        className="group inline-flex max-w-[188px] items-start gap-2.5 rounded-[18px] border border-[var(--border-soft)] bg-[var(--surface-elevated)]/92 px-3 py-2.5 text-left shadow-[0_12px_28px_-26px_var(--shadow-color)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
-                      >
-                        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] text-[var(--accent)] transition duration-300 group-hover:border-[var(--border-strong)]">{quickActionIcon(action.icon)}</span>
-                        <span className="min-w-0">
-                          <span className="block text-[13px] font-semibold tracking-[-0.02em] text-[var(--text-primary)]">{action.title}</span>
-                          <span className="mt-1 block text-[11px] leading-5 text-[var(--text-secondary)]">{action.description}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  {appPrefs.showSuggestions ? (
+                    <div className="mx-auto mt-7 grid max-w-[820px] grid-cols-1 gap-2.5 sm:mt-8 sm:grid-cols-2 xl:max-w-[880px]">
+                      {quickActions.map((action) => (
+                        <button
+                          key={action.id}
+                          type="button"
+                          onClick={() => applyQuickActionPrompt(action.prompt)}
+                          className="group min-h-[108px] rounded-[20px] border border-[var(--border-soft)] bg-[var(--surface-elevated)]/78 px-4 py-3.5 text-left shadow-[0_10px_28px_-24px_var(--shadow-color)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] text-[var(--accent)] transition duration-300 group-hover:border-[var(--border-strong)]">{quickActionIcon(action.icon)}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[0.95rem] font-semibold leading-6 tracking-[-0.02em] text-[var(--text-primary)]">{action.title}</span>
+                              <span className="mt-1 block text-[13px] leading-6 text-[var(--text-secondary)]">{action.description}</span>
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
 
-                  <div className="mt-8 sm:mt-10">
+                  <div className="mt-7 sm:mt-8">
                     <ChatComposer {...composerProps} variant="hero" />
                   </div>
                 </div>
